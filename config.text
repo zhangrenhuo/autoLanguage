@@ -1,0 +1,4 @@
+listenFilePath=./demo.text
+defLanguage=zh-CN
+languageTag=en,fr,so,pl
+suffix=.text
