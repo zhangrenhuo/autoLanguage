@@ -102,13 +102,13 @@ func FileTranslation(fileName string, language string, list []string, isAdd bool
 	write := bufio.NewWriter(f)
 	for _, e := range list {
 
-		sp := strings.Split(e, ":")
+		sp := strings.Split(e, "=")
 		if len(sp) < 2 {
 			continue
 		}
 
 		s := YoudaoTranslation(language, sp[1])
-		write.WriteString(sp[0] + ": " + s + "\r\n")
+		write.WriteString(sp[0] + "=" + s + "\r\n")
 	}
 	write.Flush()
 }
@@ -126,7 +126,7 @@ func DelKey(fileName string, delList []string) {
 
 	tmp := map[string]int{}
 	for _, e := range delList {
-		tmp[strings.Split(e, ":")[0]] = 1
+		tmp[strings.Split(e, "=")[0]] = 1
 	}
 
 	oldList := []string{}
@@ -134,7 +134,7 @@ func DelKey(fileName string, delList []string) {
 
 	for sc.Scan() {
 		s := strings.TrimSpace(sc.Text())
-		sp := strings.Split(s, ":")
+		sp := strings.Split(s, "=")
 		v := tmp[sp[0]]
 		if v != 1 {
 			oldList = append(oldList, s)
@@ -370,3 +370,4 @@ func main() {
 	}
 	<-done
 }
+
