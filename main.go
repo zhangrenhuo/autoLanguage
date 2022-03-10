@@ -2,12 +2,17 @@ package main
 
 import (
 	"bufio"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-resty/resty/v2"
@@ -15,8 +20,9 @@ import (
 
 var listenFilePath = "./demo.text"
 var defLanguage = "zh-CN"
-var languageTag = []string{"en", "fr", "so"} // 英语 法语 索马里语
+var languageTag = []string{"en", "fr"} // 英语 法语
 var suffix = ".text"
+var youdaoCookie = "OUTFOX_SEARCH_USER_ID=-1542349537@10.108.162.135; JSESSIONID=aaapDlaae38PY-VoYGY9x; OUTFOX_SEARCH_USER_ID_NCOO=610698240.2582016; fanyi-ad-id=305002; fanyi-ad-closed=1; ___rl__test__cookies="
 
 var defTextList = []string{} // 默认的文本内容
 var newTextList = []string{} //用来匹对的内容
@@ -102,7 +108,7 @@ func FileTranslation(fileName string, language string, list []string, isAdd bool
 		}
 
 		s := YoudaoTranslation(language, sp[1])
-		write.WriteString(sp[0] + ":" + s + "\r\n")
+		write.WriteString(sp[0] + ": " + s + "\r\n")
 	}
 	write.Flush()
 }
@@ -150,8 +156,8 @@ func DelKey(fileName string, delList []string) {
 
 }
 
-// 有道翻译
-func YoudaoTranslation(language string, text string) string {
+// google有道翻译
+func GoogleYoudaoTranslation(language string, text string) string {
 	client := resty.New()
 	resStr := ""
 
@@ -162,9 +168,8 @@ func YoudaoTranslation(language string, text string) string {
 		SetFormData(map[string]string{
 			"async": "translate,sl:" + defLanguage + ",tl:" + language + ",st:" + text + ",id:1646793676227,qc:true,ac:true,_id:tw-async-translate,_pms:s,_fmt:pc",
 		}).
-		// SetBody(map[string]interface{}{"async": "translate,sl:auto,tl:en,st:你好,id:1646793676227,qc:true,ac:true,_id:tw-async-translate,_pms:s,_fmt:pc"}).
 		SetResult(&resStr).
-		Post("https://www.google.com/async/translate?vet=12ahUKEwiD38qagLj2AhWD7WEKHc3pAmUQqDh6BAgCECY..i&ei=fBMoYoOxD4PbhwPN04uoBg&rlz=1C1GCEU_zh-TWTW977TW977&yv=3")
+		Post("https://www.google.com/async/translate?vet=12ahUKEwiL6_6d9Lr2AhWURd4KHUnDB0UQqDh6BAgCECY..i&ei=lZkpYsvMF5SL-QbJhp-oBA&rlz=1C1GCEU_zh-TWTW977TW977&yv=3")
 
 	if err != nil {
 		return ""
@@ -177,6 +182,57 @@ func YoudaoTranslation(language string, text string) string {
 		return ""
 	}
 	return res[0][1]
+}
+
+// 国内有道翻译
+func YoudaoTranslation(language string, text string) string {
+	t := MD5("5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36")
+	r := strconv.FormatInt(time.Now().UnixNano()/1e6, 10)
+	i := r + strconv.Itoa(rand.Intn(10))
+	sign := MD5("fanyideskweb" + text + i + "Ygy_4c=r#e#4EX^NUGUc5")
+	client := resty.New()
+
+	var data = map[string]string{
+		"i":           text,
+		"from":        defLanguage,
+		"to":          language,
+		"smartresult": "dict",
+		"client":      "fanyideskweb",
+		"salt":        i,
+		"sign":        sign,
+		"lts":         r,
+		"bv":          t,
+		"doctype":     "json",
+		"version":     "2.1",
+		"keyfrom":     "fanyi.web",
+		"action":      "FY_BY_CLICKBUTTION",
+	}
+	var rest = Result{}
+	// form 表单提交
+	_, err := client.R().
+		SetHeader("origin", "https://fanyi.youdao.com").
+		SetHeader("Referer", "https://fanyi.youdao.com/").
+		SetHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8").
+		SetHeader("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36").
+		SetHeader("Cookie", youdaoCookie+r).
+		// SetCookies(cookies).
+		SetFormData(data).
+		SetContentLength(true).
+		SetResult(&rest).
+		// SetBody(map[string]interface{}{"async": "translate,sl:auto,tl:en,st:你好,id:1646793676227,qc:true,ac:true,_id:tw-async-translate,_pms:s,_fmt:pc"}).
+		Post("https://fanyi.youdao.com/translate_o?smartresult=dict&smartresult=rule")
+
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+
+	if rest.ErrorCode != 0 {
+		return ""
+	}
+
+	// fmt.Println("resp", rest.TranslateResult[0][0].Tgt)
+	return rest.TranslateResult[0][0].Tgt
 }
 
 func Compare(defList []string, newList []string) []string {
@@ -237,6 +293,24 @@ func InitConfig(path string) map[string]string {
 	return config
 }
 
+func MD5(text string) string {
+	d := []byte(text)
+	m := md5.New()
+	m.Write(d)
+	return hex.EncodeToString(m.Sum(nil))
+}
+
+type Result struct {
+	ErrorCode       int           `json:"errorCode"`
+	TranslateResult [][]Translate `json:"translateResult"`
+	Type            string        `json:"type"`
+}
+
+type Translate struct {
+	Tgt string `json:"tgt"`
+	Src string `json:"src"`
+}
+
 func main() {
 
 	// 读取配置文件
@@ -257,6 +331,10 @@ func main() {
 
 	if value, ok := config["suffix"]; ok {
 		suffix = value
+	}
+
+	if value, ok := config["cookie"]; ok {
+		youdaoCookie = value
 	}
 
 	watcher, err := fsnotify.NewWatcher()
