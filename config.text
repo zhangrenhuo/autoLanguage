@@ -1,4 +1,5 @@
 listenFilePath=./demo.text
 defLanguage=zh-CN
-languageTag=en,fr,so,pl
+languageTag=en,fr,ja
 suffix=.text
+cookie=OUTFOX_SEARCH_USER_ID=-1542349537@10.108.162.135; JSESSIONID=aaapDlaae38PY-VoYGY9x; OUTFOX_SEARCH_USER_ID_NCOO=610698240.2582016; fanyi-ad-id=305002; fanyi-ad-closed=1; ___rl__test__cookies=
